@@ -12,9 +12,11 @@ import {
 import { Config } from '../../config'
 import { isNotEmptyObject } from '../util'
 import { textInput } from '../scriptable-utils/'
+import { returnMockedCarStatus, returnMockedCar } from './mock'
 
 const DEFAULT_API_DOMAIN = 'api.owners.kia.com'
 const LOGIN_EXPIRY = 24 * 60 * 60 * 1000
+const MOCK_API = false
 
 interface MFAResponse {
   rmtoken: string
@@ -33,15 +35,19 @@ export class BluelinkUSAKia extends Bluelink {
       language: '0',
       offset: this.getTimeZone().slice(0, 3),
       appType: 'L',
-      appVersion: '7.12.1',
-      clientId: 'MWAMOBILE',
-      osType: 'Android',
-      osVersion: '14',
-      secretKey: '98er-w34rf-ibf3-3f6h',
+      appVersion: '7.22.0',
+      // clientuuid will be overridden from cache if exists
+      clientuuid: UUID.string().toLocaleLowerCase(),
+      clientId: 'SPACL716-APL',
+      phonebrand: 'iPhone',
+      osType: 'iOS',
+      osVersion: '15.8.5',
+      secretKey: 'sydnat-9kykci-Kuhtep-h5nK',
       to: 'APIGW',
-      tokenType: 'G',
-      'User-Agent': 'okhttp/4.10.0',
-      deviceId: `${this.genRanHex(22)}:${this.genRanHex(9)}_${this.genRanHex(10)}-${this.genRanHex(5)}_${this.genRanHex(22)}_${this.genRanHex(8)}-${this.genRanHex(18)}-_${this.genRanHex(22)}_${this.genRanHex(17)}`,
+      tokentype: 'A',
+      'User-Agent': 'KIAPrimo_iOS/37 CFNetwork/1335.0.3.4 Darwin/21.6.0',
+      // deviceId will be overridden from cache if exists
+      deviceId: this.generateDeviceId(),
       Host: DEFAULT_API_DOMAIN,
     }
 
@@ -53,6 +59,21 @@ export class BluelinkUSAKia extends Bluelink {
     const obj = new BluelinkUSAKia(config, statusCheckInterval)
     await obj.superInit(config, refreshAuth)
     return obj
+  }
+
+  protected generateDeviceId(): string {
+    return `${this.genRanHex(22)}:${this.genRanHex(9)}_${this.genRanHex(10)}-${this.genRanHex(5)}_${this.genRanHex(22)}_${this.genRanHex(8)}-${this.genRanHex(18)}-_${this.genRanHex(22)}_${this.genRanHex(17)}`
+  }
+
+  protected getAdditionalHeaders(): Record<string, string> {
+    // inject previous deviceId and clientuuid from cache if exists
+    if (this.cache && this.cache.token.additionalTokens && this.cache.token.additionalTokens.deviceId) {
+      this.additionalHeaders.deviceId = this.cache.token.additionalTokens.deviceId
+    }
+    if (this.cache && this.cache.token.additionalTokens && this.cache.token.additionalTokens.clientuuid) {
+      this.additionalHeaders.clientuuid = this.cache.token.additionalTokens.clientuuid
+    }
+    return this.additionalHeaders
   }
 
   private getDateString(): string {
@@ -143,8 +164,14 @@ export class BluelinkUSAKia extends Bluelink {
   }
 
   protected async login(mfaToken: MFAResponse | undefined = undefined): Promise<BluelinkTokens | undefined> {
+    /*
+      Kia US Login/Refresh process requires initial MFA to extract SID.
+      The rmtoken returned in the initial login appears to be long lived and can be used for subsequent logins without MFA,
+      However to do that the deviceId and clientuuid used in the initial login must also be reused.
+      Hence these are cached along with the rmtoken for future logins and used if exists in cache
+    */
     // check for previous MFA token
-    if (this.cache && this.cache.token.additionalTokens && this.cache.token.additionalTokens.rmToken) {
+    if (!mfaToken && this.cache && this.cache.token.additionalTokens && this.cache.token.additionalTokens.rmToken) {
       mfaToken = {
         rmtoken: this.cache.token.additionalTokens.rmToken,
       }
@@ -153,8 +180,9 @@ export class BluelinkUSAKia extends Bluelink {
     const resp = await this.request({
       url: this.apiDomain + 'prof/authUser',
       data: JSON.stringify({
-        deviceKey: '',
+        deviceKey: this.getAdditionalHeaders().deviceId,
         deviceType: 2,
+        tncFlag: 1,
         userCredential: {
           userId: this.config.auth.username,
           password: this.config.auth.password,
@@ -179,7 +207,11 @@ export class BluelinkUSAKia extends Bluelink {
       const xid = this.caseInsensitiveParamExtraction('xid', resp.resp.headers)
       if (!sid && xid && (!mfaToken || !mfaToken.sid)) {
         // If no SID and we havent attempted MFA yet - try it, loging will be called again from MFA function
-        return await this.mfa(resp.json.payload.phoneVerifyStatus ? 'SMS' : 'EMAIL', resp.json.payload.otpKey, xid)
+        return await this.mfa(
+          resp.json.payload.phoneVerifyStatus && this.config.mfaPreference === 'sms' ? 'SMS' : 'EMAIL',
+          resp.json.payload.otpKey,
+          xid,
+        )
       }
 
       // update tokens used in this session as we call getCar before we write the new tokens to cache
@@ -190,6 +222,8 @@ export class BluelinkUSAKia extends Bluelink {
         ...(mfaToken && {
           additionalTokens: {
             rmToken: mfaToken.rmtoken,
+            deviceId: this.getAdditionalHeaders().deviceId || '',
+            clientuuid: this.getAdditionalHeaders().clientuuid || '',
           },
         }),
       }
@@ -198,12 +232,25 @@ export class BluelinkUSAKia extends Bluelink {
       return this.tokens
     }
 
+    // if we reach here login failed - regenerate deviceId if we have it cached
+    if (
+      this.cache &&
+      this.cache.token &&
+      this.cache.token.additionalTokens &&
+      this.cache.token.additionalTokens.deviceId
+    ) {
+      this.cache.token.additionalTokens.deviceId = this.generateDeviceId()
+      this.cache.token.additionalTokens.clientuuid = UUID.string().toLocaleLowerCase()
+      this.saveCache()
+    }
+
     const error = `Login Failed: ${JSON.stringify(resp.json)} request ${JSON.stringify(this.debugLastRequest)}`
     if (this.config.debugLogging) this.logger.log(error)
     return undefined
   }
 
   protected async getCar(noRetry = false): Promise<BluelinkCar | undefined> {
+    if (MOCK_API) return returnMockedCar()
     let vin = this.vin
     if (!vin && this.cache) {
       vin = this.cache.car.vin
@@ -319,6 +366,7 @@ export class BluelinkUSAKia extends Bluelink {
     location: boolean = false,
     retry = true,
   ): Promise<BluelinkStatus> {
+    if (MOCK_API) return returnMockedCarStatus()
     if (!forceUpdate) {
       // as the request payload contains the authId - which is a auth param we disable retry and manage retry ourselves
       const resp = await this.request({
