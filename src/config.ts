@@ -108,9 +108,8 @@ export interface FlattenedConfig {
   chargeLimits: ChargeLimitConfig[]
 }
 
-// const SUPPORTED_REGIONS = ['canada']
-const SUPPORTED_REGIONS = ['canada', 'usa', 'europe', 'india', 'australia']
-const SUPPORTED_MANUFACTURERS = ['Hyundai', 'Kia', 'Genesis']
+const SUPPORTED_REGIONS = ['usa']
+const SUPPORTED_MANUFACTURERS = ['Hyundai']
 const CAR_COLORS = ['White', 'Black', 'Grey', 'Matte-Grey', 'Metallic-Grey', 'Silver', 'Red', 'Orange', 'Blue', 'Green']
 const DEFAULT_TEMPS = {
   C: {
@@ -129,7 +128,7 @@ const DEFAULT_CONFIG = {
     username: '',
     password: '',
     pin: '',
-    region: '',
+    region: 'usa',
   },
   tempType: 'C',
   distanceUnit: 'km',
@@ -296,17 +295,6 @@ export async function loadConfigScreen(bl: Bluelink | undefined = undefined) {
           includeCancel: false,
         })
       }
-      if (
-        state.region === 'europe' &&
-        state.manufacturer === 'Kia' &&
-        (previousState.region !== 'europe' || previousState.manufacturer !== 'Kia')
-      ) {
-        confirm('Kia in Europe requires login through a webview. Login window will open automatically.', {
-          confirmButtonTitle: 'I understand',
-          includeCancel: false,
-        })
-      }
-
       return state
     },
     isFormValid: ({ username, password, region, pin, tempType, climateTempCold, climateTempWarm }) => {
