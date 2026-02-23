@@ -85,3 +85,5 @@ Notes:
 
 - this mode is intended for **developer feedback** and UI behavior checks
 - real Scriptable APIs/widgets/Siri integrations must still be validated on iOS
+- If you run from Git Bash/PowerShell on Windows, avoid passing `~`-prefixed repo paths to tooling. Run `npm run ui:test` from the repository root so the server resolves files from absolute script locations.
+
