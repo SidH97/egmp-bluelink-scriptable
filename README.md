@@ -77,13 +77,19 @@ npm run ui:test
 
 Then open the printed URL (default: `http://localhost:4173`). The harness provides:
 
+- first-run setup form (region/manufacturer/credentials/pin/preferences) with local persistence
+- simulated login/logout session flow before app controls are enabled
 - scenario switching using payloads from `exampleData/` (default, charging, conditioning, cached)
 - Scriptable-like action buttons (`Lock`, `Unlock`, `Start Climate`, `Start/Stop Charge`, etc.)
 - a live status summary + event log to validate interaction flows
+- iOS/Scriptable-style widget preview cards (home + lockscreen families)
 
 Notes:
 
 - this mode is intended for **developer feedback** and UI behavior checks
+- you can open the harness URL in Scriptable `WebView` to use the same test UI from iOS
 - real Scriptable APIs/widgets/Siri integrations must still be validated on iOS
-- If you run from Git Bash/PowerShell on Windows, avoid passing `~`-prefixed repo paths to tooling. Run `npm run ui:test` from the repository root so the server resolves files from absolute script locations.
 
+Troubleshooting:
+
+- If you run from Git Bash/PowerShell on Windows, avoid passing `~`-prefixed repo paths to tooling. Run `npm run ui:test` from the repository root so the server resolves files from absolute script locations.

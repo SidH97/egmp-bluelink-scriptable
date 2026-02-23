@@ -10,16 +10,77 @@
     <main class="app-shell">
       <header class="header">
         <h1>Bluelink Scriptable UI Test Mode</h1>
-        <p>Desktop harness for testing Scriptable-like views and button interactions.</p>
+        <p>
+          Production-ready desktop harness for Scriptable-like setup, login, app controls, and iOS widget preview
+          states.
+        </p>
       </header>
 
       <section class="panel">
-        <h2>Mock Scenario</h2>
+        <h2>1) Setup</h2>
+        <p class="muted">Simulates first-run Scriptable configuration persisted in browser storage.</p>
+        <form id="setup-form" class="form-grid">
+          <label>
+            Region
+            <select name="region" required>
+              <option value="eu">Europe</option>
+              <option value="usa">USA</option>
+              <option value="canada">Canada</option>
+              <option value="australia">Australia</option>
+              <option value="india">India</option>
+            </select>
+          </label>
+          <label>
+            Manufacturer
+            <select name="manufacturer" required>
+              <option value="hyundai">Hyundai</option>
+              <option value="kia">Kia</option>
+            </select>
+          </label>
+          <label>
+            Username
+            <input type="text" name="username" placeholder="you@example.com" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" placeholder="********" required />
+          </label>
+          <label>
+            PIN
+            <input type="password" name="pin" minlength="4" maxlength="4" pattern="[0-9]{4}" required />
+          </label>
+          <label>
+            Distance Unit
+            <select name="distanceUnit" required>
+              <option value="km">Kilometers</option>
+              <option value="mi">Miles</option>
+            </select>
+          </label>
+          <div class="form-actions full-width">
+            <button type="submit">Save Setup</button>
+            <button type="button" id="reset-setup" class="danger">Reset Setup</button>
+          </div>
+        </form>
+        <p id="setup-status" class="muted"></p>
+      </section>
+
+      <section class="panel">
+        <h2>2) Login Session</h2>
+        <p class="muted">Simulates authentication state that gates app and widget rendering.</p>
+        <div class="button-row">
+          <button type="button" id="login-button">Login</button>
+          <button type="button" id="logout-button">Logout</button>
+        </div>
+        <p id="session-status" class="muted"></p>
+      </section>
+
+      <section class="panel">
+        <h2>3) Mock Scenario</h2>
         <div class="scenario-controls" id="scenario-controls"></div>
       </section>
 
       <section class="panel">
-        <h2>Main App Actions (Scriptable button equivalents)</h2>
+        <h2>4) Main App Actions (Scriptable button equivalents)</h2>
         <div class="button-row" id="action-buttons"></div>
       </section>
 
@@ -32,6 +93,14 @@
           <h2>Recent Events</h2>
           <ul id="events"></ul>
         </article>
+      </section>
+
+      <section class="panel">
+        <h2>5) Widget Preview (iOS/Scriptable-style)</h2>
+        <p class="muted">
+          Preview cards mimic Scriptable widget families and update from the same test state as app actions.
+        </p>
+        <div class="widget-grid" id="widget-preview"></div>
       </section>
     </main>
 

@@ -8,6 +8,7 @@
   --accent: #46a0ff;
   --success: #22c55e;
   --warn: #eab308;
+  --danger: #ef4444;
 }
 
 * {
@@ -22,12 +23,13 @@ body {
 }
 
 .app-shell {
-  max-width: 980px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 24px;
 }
 
-.header p {
+.header p,
+.muted {
   color: var(--muted);
 }
 
@@ -40,28 +42,64 @@ body {
 }
 
 .button-row,
-.scenario-controls {
+.scenario-controls,
+.form-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+input,
+select,
 button {
   border: 1px solid var(--line);
   background: #101a2b;
   color: var(--text);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+button {
   cursor: pointer;
 }
 
-button:hover {
+button:hover,
+input:focus,
+select:focus {
   border-color: var(--accent);
+  outline: none;
 }
 
 button.active {
   border-color: var(--accent);
   background: #102743;
+}
+
+button.danger {
+  border-color: #5f2121;
+  background: #301515;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.full-width {
+  grid-column: 1 / -1;
 }
 
 dl {
@@ -88,14 +126,55 @@ li.warn {
   color: var(--warn);
 }
 
+li.error {
+  color: var(--danger);
+}
+
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
 }
 
-@media (max-width: 720px) {
-  .two-col {
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.widget-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(170deg, #111827 10%, #1f2937 70%);
+}
+
+.widget-box h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #c8d8ff;
+}
+
+.widget-metric {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.widget-pill {
+  display: inline-block;
+  margin-top: 8px;
+  border: 1px solid #32567d;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #b6daff;
+}
+
+@media (max-width: 860px) {
+  .two-col,
+  .widget-grid,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }

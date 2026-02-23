@@ -1,3 +1,5 @@
+const STORAGE_KEY = 'bluelink-ui-test-config-v1'
+
 const scenarios = [
   { key: 'default', label: 'Default Status', file: '/data/vehicleStatus.json' },
   { key: 'charging', label: 'Charging', file: '/data/vehicleStatusCharging.json' },
@@ -20,26 +22,71 @@ const state = {
   status: null,
   vehicle: null,
   events: [],
+  setup: null,
+  loggedIn: false,
 }
 
 const scenarioControls = document.getElementById('scenario-controls')
 const actionControls = document.getElementById('action-buttons')
 const summary = document.getElementById('summary')
 const events = document.getElementById('events')
+const setupForm = document.getElementById('setup-form')
+const setupStatus = document.getElementById('setup-status')
+const loginButton = document.getElementById('login-button')
+const logoutButton = document.getElementById('logout-button')
+const sessionStatus = document.getElementById('session-status')
+const resetSetupButton = document.getElementById('reset-setup')
+const widgetPreview = document.getElementById('widget-preview')
 
 function fmtBool(value) {
   return value ? 'Yes' : 'No'
 }
 
-function asKms(value) {
+function asDistance(value) {
   if (typeof value !== 'number') return 'N/A'
+  const unit = state.setup?.distanceUnit === 'mi' ? 'mi' : 'km'
+  if (unit === 'mi') {
+    return `${(value * 0.621371).toFixed(1)} mi`
+  }
   return `${value.toLocaleString()} km`
 }
 
 function addEvent(msg, cls = 'ok') {
   state.events.unshift({ msg, cls, when: new Date().toLocaleTimeString() })
-  state.events = state.events.slice(0, 8)
+  state.events = state.events.slice(0, 10)
   renderEvents()
+}
+
+function saveSetup(setup) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(setup))
+}
+
+function loadSetup() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function clearSetup() {
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+function isConfigured() {
+  return Boolean(state.setup?.username && state.setup?.password && state.setup?.pin)
+}
+
+function updateSessionStatus() {
+  if (!isConfigured()) {
+    sessionStatus.textContent = 'Not configured. Complete setup first.'
+    return
+  }
+  sessionStatus.textContent = state.loggedIn
+    ? `Logged in as ${state.setup.username} (${state.setup.manufacturer}/${state.setup.region})`
+    : 'Configured but logged out.'
 }
 
 function renderEvents() {
@@ -63,15 +110,17 @@ function summaryRows() {
     ['Plugged In', fmtBool(Boolean(state.status.evStatus?.batteryPlugin))],
     ['Climate', fmtBool(Boolean(state.status.airCtrlOn))],
     ['Door Locked', fmtBool(Boolean(state.status.doorLock))],
-    ['Range', asKms(state.status.evStatus?.drvDistance?.[0]?.rangeByFuel?.totalAvailableRange?.value)],
-    ['Odometer', asKms(state.status.odometer?.value)],
+    ['Range', asDistance(state.status.evStatus?.drvDistance?.[0]?.rangeByFuel?.totalAvailableRange?.value)],
+    ['Odometer', asDistance(state.status.odometer?.value)],
     ['Last Updated', state.status.dateTime || 'N/A'],
   ]
 }
 
 function renderSummary() {
   summary.innerHTML = ''
-  for (const [label, value] of summaryRows()) {
+  const rows = !state.loggedIn ? [['Status', 'Login required to view app data']] : summaryRows()
+
+  for (const [label, value] of rows) {
     const dt = document.createElement('dt')
     dt.textContent = label
     const dd = document.createElement('dd')
@@ -81,8 +130,67 @@ function renderSummary() {
   }
 }
 
+function renderWidgets() {
+  widgetPreview.innerHTML = ''
+
+  const soc = state.status?.evStatus?.batteryStatus ?? '--'
+  const charging = Boolean(state.status?.evStatus?.batteryCharge)
+  const climate = Boolean(state.status?.airCtrlOn)
+  const locked = Boolean(state.status?.doorLock)
+  const range = asDistance(state.status?.evStatus?.drvDistance?.[0]?.rangeByFuel?.totalAvailableRange?.value)
+  const lockText = locked ? 'Locked' : 'Unlocked'
+
+  const widgets = [
+    {
+      title: 'Medium (Home)',
+      lines: [
+        `${state.vehicle?.nickName || 'Vehicle'}`,
+        `Battery: ${soc}%`,
+        `Range: ${range}`,
+      ],
+      pill: charging ? 'Charging' : 'Idle',
+    },
+    {
+      title: 'Accessory Rectangular',
+      lines: [`${soc}%`, `${lockText}`, climate ? 'Climate On' : 'Climate Off'],
+      pill: climate ? 'Cabin Conditioning' : 'Ready',
+    },
+    {
+      title: 'Accessory Inline',
+      lines: [`${soc}% • ${charging ? '⚡ Charging' : 'Not Charging'}`, `Doors: ${lockText}`],
+      pill: 'Lockscreen',
+    },
+  ]
+
+  for (const w of widgets) {
+    const box = document.createElement('div')
+    box.className = 'widget-box'
+    box.innerHTML = `
+      <h3>${w.title}</h3>
+      <div class="widget-metric">${soc}%</div>
+      <div>${w.lines[0] || ''}</div>
+      <div>${w.lines[1] || ''}</div>
+      <div>${w.lines[2] || ''}</div>
+      <span class="widget-pill">${w.pill}</span>
+    `
+    widgetPreview.appendChild(box)
+  }
+}
+
+function updateControlState() {
+  const enabled = state.loggedIn
+  for (const btn of actionControls.querySelectorAll('button')) {
+    btn.disabled = !enabled
+  }
+  for (const btn of scenarioControls.querySelectorAll('button')) {
+    btn.disabled = !enabled
+  }
+  loginButton.disabled = !isConfigured() || state.loggedIn
+  logoutButton.disabled = !state.loggedIn
+}
+
 function handleAction(action) {
-  if (!state.status) return
+  if (!state.status || !state.loggedIn) return
 
   switch (action) {
     case 'refresh':
@@ -117,6 +225,7 @@ function handleAction(action) {
   }
 
   renderSummary()
+  renderWidgets()
 }
 
 function renderActionButtons() {
@@ -143,6 +252,7 @@ async function loadScenario(key) {
   state.status = structuredClone(statusPayload.resMsg?.vehicleStatus || {})
   addEvent(`Scenario loaded: ${scenario.label}`)
   renderSummary()
+  renderWidgets()
 
   for (const button of scenarioControls.querySelectorAll('button')) {
     button.classList.toggle('active', button.dataset.scenario === key)
@@ -160,6 +270,87 @@ function renderScenarioButtons() {
   }
 }
 
+function wireSetup() {
+  setupForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const fd = new FormData(setupForm)
+    const setup = Object.fromEntries(fd.entries())
+    state.setup = setup
+    state.loggedIn = false
+    saveSetup(setup)
+    setupStatus.textContent = `Setup saved for ${setup.manufacturer}/${setup.region}`
+    addEvent('Setup saved', 'ok')
+    updateSessionStatus()
+    updateControlState()
+    renderSummary()
+    renderWidgets()
+  })
+
+  resetSetupButton.addEventListener('click', () => {
+    clearSetup()
+    setupForm.reset()
+    state.setup = null
+    state.loggedIn = false
+    setupStatus.textContent = 'Setup cleared.'
+    addEvent('Setup reset', 'warn')
+    updateSessionStatus()
+    updateControlState()
+    renderSummary()
+    renderWidgets()
+  })
+}
+
+function wireSession() {
+  loginButton.addEventListener('click', async () => {
+    if (!isConfigured()) {
+      addEvent('Cannot login before setup', 'error')
+      return
+    }
+    loginButton.disabled = true
+    sessionStatus.textContent = 'Logging in...'
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    state.loggedIn = true
+    addEvent('Login successful')
+    updateSessionStatus()
+    updateControlState()
+    renderSummary()
+    renderWidgets()
+  })
+
+  logoutButton.addEventListener('click', () => {
+    state.loggedIn = false
+    addEvent('Logged out', 'warn')
+    updateSessionStatus()
+    updateControlState()
+    renderSummary()
+    renderWidgets()
+  })
+}
+
+function bootstrapSetupFromStorage() {
+  const existing = loadSetup()
+  if (!existing) {
+    setupStatus.textContent = 'No setup saved yet.'
+    return
+  }
+
+  state.setup = existing
+  for (const [key, value] of Object.entries(existing)) {
+    const input = setupForm.elements.namedItem(key)
+    if (input && 'value' in input) {
+      input.value = String(value)
+    }
+  }
+  setupStatus.textContent = `Loaded saved setup for ${existing.manufacturer}/${existing.region}`
+}
+
 renderScenarioButtons()
 renderActionButtons()
+wireSetup()
+wireSession()
+bootstrapSetupFromStorage()
+updateSessionStatus()
+updateControlState()
 void loadScenario(state.selectedScenario)
+renderSummary()
+renderWidgets()
