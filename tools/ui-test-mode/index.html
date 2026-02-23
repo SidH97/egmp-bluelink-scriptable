@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bluelink Scriptable UI Test Mode</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="header">
+        <h1>Bluelink Scriptable UI Test Mode</h1>
+        <p>Desktop harness for testing Scriptable-like views and button interactions.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Mock Scenario</h2>
+        <div class="scenario-controls" id="scenario-controls"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Main App Actions (Scriptable button equivalents)</h2>
+        <div class="button-row" id="action-buttons"></div>
+      </section>
+
+      <section class="panel two-col">
+        <article>
+          <h2>Vehicle Summary</h2>
+          <dl id="summary"></dl>
+        </article>
+        <article>
+          <h2>Recent Events</h2>
+          <ul id="events"></ul>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
