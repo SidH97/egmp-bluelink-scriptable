@@ -79,10 +79,10 @@ Then open the printed URL (default: `http://localhost:4173`). The harness provid
 
 - first-run setup form (region/manufacturer/credentials/pin/preferences) with local persistence
 - simulated login/logout session flow before app controls are enabled
-- scenario switching using payloads from `exampleData/` (default, charging, conditioning, cached)
-- Scriptable-like action buttons (`Lock`, `Unlock`, `Start Climate`, `Start/Stop Charge`, etc.)
+- ICE-oriented scenario switching (parked, driving, low fuel, valet)
+- Scriptable-like action buttons (`Lock`, `Unlock`, `Start/Stop Engine`, `Honk + Lights`, `Start/Stop Climate`)
 - a live status summary + event log to validate interaction flows
-- iOS/Scriptable-style widget preview cards (home + lockscreen families)
+- iOS/Scriptable-style widget preview cards focused on ICE metrics (fuel, range, lock, engine state)
 
 Notes:
 

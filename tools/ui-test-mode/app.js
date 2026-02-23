@@ -1,26 +1,83 @@
 const STORAGE_KEY = 'bluelink-ui-test-config-v1'
 
 const scenarios = [
-  { key: 'default', label: 'Default Status', file: '/data/vehicleStatus.json' },
-  { key: 'charging', label: 'Charging', file: '/data/vehicleStatusCharging.json' },
-  { key: 'conditioning', label: 'Conditioning', file: '/data/vehicleStatusConditioning.json' },
-  { key: 'stale', label: 'Cached/Not Forced', file: '/data/vehicleStatusNotForced.json' },
+  {
+    key: 'parked',
+    label: 'Parked',
+    status: {
+      fuelPercent: 58,
+      isRunning: false,
+      isLocked: true,
+      climateOn: false,
+      tirePressureLow: false,
+      odometerKm: 38412,
+      rangeKm: 421,
+      lastUpdated: new Date().toISOString(),
+    },
+  },
+  {
+    key: 'driving',
+    label: 'Driving',
+    status: {
+      fuelPercent: 52,
+      isRunning: true,
+      isLocked: false,
+      climateOn: true,
+      tirePressureLow: false,
+      odometerKm: 38436,
+      rangeKm: 388,
+      lastUpdated: new Date().toISOString(),
+    },
+  },
+  {
+    key: 'lowFuel',
+    label: 'Low Fuel',
+    status: {
+      fuelPercent: 9,
+      isRunning: false,
+      isLocked: true,
+      climateOn: false,
+      tirePressureLow: true,
+      odometerKm: 38890,
+      rangeKm: 56,
+      lastUpdated: new Date().toISOString(),
+    },
+  },
+  {
+    key: 'valet',
+    label: 'Valet',
+    status: {
+      fuelPercent: 47,
+      isRunning: false,
+      isLocked: false,
+      climateOn: false,
+      tirePressureLow: false,
+      odometerKm: 39010,
+      rangeKm: 335,
+      lastUpdated: new Date().toISOString(),
+    },
+  },
 ]
 
 const actionButtons = [
   { key: 'refresh', label: 'Refresh Status' },
   { key: 'lock', label: 'Lock' },
   { key: 'unlock', label: 'Unlock' },
+  { key: 'engineOn', label: 'Start Engine' },
+  { key: 'engineOff', label: 'Stop Engine' },
+  { key: 'hornLights', label: 'Honk + Lights' },
   { key: 'climateOn', label: 'Start Climate' },
   { key: 'climateOff', label: 'Stop Climate' },
-  { key: 'startCharge', label: 'Start Charge' },
-  { key: 'stopCharge', label: 'Stop Charge' },
 ]
 
 const state = {
-  selectedScenario: 'default',
+  selectedScenario: 'parked',
   status: null,
-  vehicle: null,
+  vehicle: {
+    nickName: 'Family SUV',
+    modelYear: '2024',
+    modelName: 'Sportage',
+  },
   events: [],
   setup: null,
   loggedIn: false,
@@ -45,9 +102,7 @@ function fmtBool(value) {
 function asDistance(value) {
   if (typeof value !== 'number') return 'N/A'
   const unit = state.setup?.distanceUnit === 'mi' ? 'mi' : 'km'
-  if (unit === 'mi') {
-    return `${(value * 0.621371).toFixed(1)} mi`
-  }
+  if (unit === 'mi') return `${(value * 0.621371).toFixed(1)} mi`
   return `${value.toLocaleString()} km`
 }
 
@@ -105,14 +160,14 @@ function summaryRows() {
   return [
     ['Vehicle', state.vehicle?.nickName || 'Unknown'],
     ['Model', `${state.vehicle?.modelYear || ''} ${state.vehicle?.modelName || ''}`.trim()],
-    ['Battery SOC', `${state.status.evStatus?.batteryStatus || 'N/A'}%`],
-    ['Charging', fmtBool(Boolean(state.status.evStatus?.batteryCharge))],
-    ['Plugged In', fmtBool(Boolean(state.status.evStatus?.batteryPlugin))],
-    ['Climate', fmtBool(Boolean(state.status.airCtrlOn))],
-    ['Door Locked', fmtBool(Boolean(state.status.doorLock))],
-    ['Range', asDistance(state.status.evStatus?.drvDistance?.[0]?.rangeByFuel?.totalAvailableRange?.value)],
-    ['Odometer', asDistance(state.status.odometer?.value)],
-    ['Last Updated', state.status.dateTime || 'N/A'],
+    ['Fuel Level', `${state.status.fuelPercent}%`],
+    ['Estimated Range', asDistance(state.status.rangeKm)],
+    ['Engine Running', fmtBool(state.status.isRunning)],
+    ['Doors Locked', fmtBool(state.status.isLocked)],
+    ['Climate', fmtBool(state.status.climateOn)],
+    ['Low Tire Pressure', fmtBool(state.status.tirePressureLow)],
+    ['Odometer', asDistance(state.status.odometerKm)],
+    ['Last Updated', state.status.lastUpdated || 'N/A'],
   ]
 }
 
@@ -133,31 +188,38 @@ function renderSummary() {
 function renderWidgets() {
   widgetPreview.innerHTML = ''
 
-  const soc = state.status?.evStatus?.batteryStatus ?? '--'
-  const charging = Boolean(state.status?.evStatus?.batteryCharge)
-  const climate = Boolean(state.status?.airCtrlOn)
-  const locked = Boolean(state.status?.doorLock)
-  const range = asDistance(state.status?.evStatus?.drvDistance?.[0]?.rangeByFuel?.totalAvailableRange?.value)
-  const lockText = locked ? 'Locked' : 'Unlocked'
+  const fuel = state.status?.fuelPercent ?? '--'
+  const running = Boolean(state.status?.isRunning)
+  const climate = Boolean(state.status?.climateOn)
+  const locked = Boolean(state.status?.isLocked)
+  const tirePressureLow = Boolean(state.status?.tirePressureLow)
+  const range = asDistance(state.status?.rangeKm)
 
   const widgets = [
     {
       title: 'Medium (Home)',
+      metric: `${fuel}%`,
       lines: [
         `${state.vehicle?.nickName || 'Vehicle'}`,
-        `Battery: ${soc}%`,
+        `Fuel: ${fuel}%`,
         `Range: ${range}`,
       ],
-      pill: charging ? 'Charging' : 'Idle',
+      pill: running ? 'Engine On' : 'Parked',
     },
     {
       title: 'Accessory Rectangular',
-      lines: [`${soc}%`, `${lockText}`, climate ? 'Climate On' : 'Climate Off'],
-      pill: climate ? 'Cabin Conditioning' : 'Ready',
+      metric: running ? 'ON' : 'OFF',
+      lines: [
+        running ? 'Engine Running' : 'Engine Stopped',
+        locked ? 'Locked' : 'Unlocked',
+        climate ? 'Climate On' : 'Climate Off',
+      ],
+      pill: tirePressureLow ? 'Check Tires' : 'Vehicle OK',
     },
     {
       title: 'Accessory Inline',
-      lines: [`${soc}% • ${charging ? '⚡ Charging' : 'Not Charging'}`, `Doors: ${lockText}`],
+      metric: `${fuel}%`,
+      lines: [`Fuel ${fuel}% • ${running ? 'Running' : 'Idle'}`, `Doors: ${locked ? 'Locked' : 'Unlocked'}`],
       pill: 'Lockscreen',
     },
   ]
@@ -167,7 +229,7 @@ function renderWidgets() {
     box.className = 'widget-box'
     box.innerHTML = `
       <h3>${w.title}</h3>
-      <div class="widget-metric">${soc}%</div>
+      <div class="widget-metric">${w.metric}</div>
       <div>${w.lines[0] || ''}</div>
       <div>${w.lines[1] || ''}</div>
       <div>${w.lines[2] || ''}</div>
@@ -179,14 +241,14 @@ function renderWidgets() {
 
 function updateControlState() {
   const enabled = state.loggedIn
-  for (const btn of actionControls.querySelectorAll('button')) {
-    btn.disabled = !enabled
-  }
-  for (const btn of scenarioControls.querySelectorAll('button')) {
-    btn.disabled = !enabled
-  }
+  for (const btn of actionControls.querySelectorAll('button')) btn.disabled = !enabled
+  for (const btn of scenarioControls.querySelectorAll('button')) btn.disabled = !enabled
   loginButton.disabled = !isConfigured() || state.loggedIn
   logoutButton.disabled = !state.loggedIn
+}
+
+function touchStatus() {
+  if (state.status) state.status.lastUpdated = new Date().toISOString()
 }
 
 function handleAction(action) {
@@ -197,33 +259,35 @@ function handleAction(action) {
       addEvent('Status refresh simulated using current scenario data')
       break
     case 'lock':
-      state.status.doorLock = true
+      state.status.isLocked = true
       addEvent('Vehicle locked')
       break
     case 'unlock':
-      state.status.doorLock = false
+      state.status.isLocked = false
       addEvent('Vehicle unlocked', 'warn')
       break
+    case 'engineOn':
+      state.status.isRunning = true
+      addEvent('Engine started')
+      break
+    case 'engineOff':
+      state.status.isRunning = false
+      addEvent('Engine stopped', 'warn')
+      break
+    case 'hornLights':
+      addEvent('Honk and lights triggered')
+      break
     case 'climateOn':
-      state.status.airCtrlOn = true
+      state.status.climateOn = true
       addEvent('Climate started')
       break
     case 'climateOff':
-      state.status.airCtrlOn = false
-      addEvent('Climate stopped')
-      break
-    case 'startCharge':
-      state.status.evStatus = state.status.evStatus || {}
-      state.status.evStatus.batteryCharge = true
-      addEvent('Charging started')
-      break
-    case 'stopCharge':
-      state.status.evStatus = state.status.evStatus || {}
-      state.status.evStatus.batteryCharge = false
-      addEvent('Charging stopped', 'warn')
+      state.status.climateOn = false
+      addEvent('Climate stopped', 'warn')
       break
   }
 
+  touchStatus()
   renderSummary()
   renderWidgets()
 }
@@ -241,15 +305,11 @@ function renderActionButtons() {
 async function loadScenario(key) {
   const scenario = scenarios.find((item) => item.key === key)
   if (!scenario) return
-
-  const [vehicleList, statusPayload] = await Promise.all([
-    fetch('/data/listVehicles.json').then((res) => res.json()),
-    fetch(scenario.file).then((res) => res.json()),
-  ])
-
   state.selectedScenario = key
-  state.vehicle = vehicleList.resMsg?.vehicles?.[0] || null
-  state.status = structuredClone(statusPayload.resMsg?.vehicleStatus || {})
+  state.status = structuredClone(scenario.status)
+  state.vehicle = state.setup?.manufacturer === 'hyundai'
+    ? { nickName: 'Family SUV', modelYear: '2024', modelName: 'Tucson' }
+    : { nickName: 'Family SUV', modelYear: '2024', modelName: 'Sportage' }
   addEvent(`Scenario loaded: ${scenario.label}`)
   renderSummary()
   renderWidgets()
@@ -282,8 +342,7 @@ function wireSetup() {
     addEvent('Setup saved', 'ok')
     updateSessionStatus()
     updateControlState()
-    renderSummary()
-    renderWidgets()
+    void loadScenario(state.selectedScenario)
   })
 
   resetSetupButton.addEventListener('click', () => {
@@ -337,9 +396,7 @@ function bootstrapSetupFromStorage() {
   state.setup = existing
   for (const [key, value] of Object.entries(existing)) {
     const input = setupForm.elements.namedItem(key)
-    if (input && 'value' in input) {
-      input.value = String(value)
-    }
+    if (input && 'value' in input) input.value = String(value)
   }
   setupStatus.textContent = `Loaded saved setup for ${existing.manufacturer}/${existing.region}`
 }
