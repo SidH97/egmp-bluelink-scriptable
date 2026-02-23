@@ -41,3 +41,47 @@ npm i
 npm run build ./src/index.ts egmp-bluelink
 ```
 
+The output JavaScript file (`egmp-bluelink.js`) is what you copy into your iCloud `Scriptable` folder on iOS.
+
+### Testing and seeing the app in action
+
+This project is designed to run inside the **Scriptable iOS app**, so most runtime features (widgets, Siri shortcuts, `ListWidget`, `UITable`, `Script`, `Safari`, etc.) only work on iOS.
+
+Typical workflow for testing:
+
+1. Build locally with `npm run build ./src/index.ts egmp-bluelink`.
+2. Copy the generated `egmp-bluelink.js` to iCloud Drive → `Scriptable`.
+3. Open Scriptable on iPhone/iPad and run `egmp-bluelink`.
+4. Test app mode (in-app UI), widget mode (home/lock screen widgets), and Siri/Shortcuts mode.
+
+For code-level checks on desktop, run:
+
+```
+npm run lint
+```
+
+This validates formatting/types/lint rules but does **not** emulate Scriptable's iOS runtime.
+
+Tip: `exampleData/` includes sample API payloads you can use to reason about response handling while developing.
+
+
+### Desktop UI test mode (Scriptable mimic)
+
+A lightweight desktop test harness is included for quick iteration on UI states and command/button behavior without needing an iPhone for every change.
+
+Run:
+
+```
+npm run ui:test
+```
+
+Then open the printed URL (default: `http://localhost:4173`). The harness provides:
+
+- scenario switching using payloads from `exampleData/` (default, charging, conditioning, cached)
+- Scriptable-like action buttons (`Lock`, `Unlock`, `Start Climate`, `Start/Stop Charge`, etc.)
+- a live status summary + event log to validate interaction flows
+
+Notes:
+
+- this mode is intended for **developer feedback** and UI behavior checks
+- real Scriptable APIs/widgets/Siri integrations must still be validated on iOS
